@@ -1,0 +1,9 @@
+[package]
+name = "couchdb_global_changes_feed"
+version = "0.1.0"
+authors = ["Johannes J. Schmidt <jo@die-tf.de>"]
+
+[dependencies]
+hyper = "0.9.10"
+rustc-serialize = "0.3.19"
+clap = "2.14.0"
