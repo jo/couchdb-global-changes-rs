@@ -7,3 +7,4 @@ authors = ["Johannes J. Schmidt <jo@die-tf.de>"]
 hyper = "0.9.10"
 rustc-serialize = "0.3.19"
 clap = "2.14.0"
+url = "1.2.1"

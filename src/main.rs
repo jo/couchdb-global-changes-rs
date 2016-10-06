@@ -1,12 +1,16 @@
 extern crate hyper;
 extern crate rustc_serialize;
 extern crate clap;
+extern crate url;
 
 use clap::{Arg, App, ArgMatches};
 use hyper::Client;
 use hyper::header::{Headers, Authorization, Basic};
 use std::io::Read;
 use rustc_serialize::json;
+use url::percent_encoding::utf8_percent_encode;
+use url::percent_encoding::PATH_SEGMENT_ENCODE_SET;
+
 
 #[derive(RustcDecodable, RustcEncodable)]
 pub struct ChangesResult {
@@ -99,7 +103,7 @@ fn main() {
          // println!("{}", result.db_name);
 
          let h = make_headers(&matches);
-         let u = format!("{}/{}/_changes", server_url, result.db_name);
+         let u = format!("{}/{}/_changes", server_url, utf8_percent_encode(&result.db_name, PATH_SEGMENT_ENCODE_SET));
          let mut resp = client.get(&u).headers(h).send().unwrap();
 
          assert_eq!(resp.status, hyper::Ok);
