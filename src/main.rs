@@ -2,7 +2,7 @@ extern crate hyper;
 extern crate rustc_serialize;
 extern crate clap;
 
-use clap::{Arg, App};
+use clap::{Arg, App, ArgMatches};
 use hyper::Client;
 use hyper::header::{Headers, Authorization, Basic};
 use std::io::Read;
@@ -30,6 +30,25 @@ pub struct DbUpdateResult {
 pub struct DbUpdates {
     last_seq: String,
     results: Vec<DbUpdateResult>,
+}
+
+fn make_headers(matches: &ArgMatches) -> Headers {
+    let mut headers = Headers::new();
+
+    // Gets a value for username if supplied by user, or defaults to "default.conf"
+    if let Some(username) = matches.value_of("username") {
+        let password = matches.value_of("password").unwrap();
+        // println!("auth: {}:{}", username, password);
+
+        headers.set(Authorization(
+           Basic {
+               username: username.to_owned(),
+               password: Some(password.to_owned())
+           }
+       ));
+    }
+
+    headers
 }
 
 fn main() {
@@ -63,20 +82,7 @@ fn main() {
 
     let client = Client::new();
     
-    let mut headers = Headers::new();
-
-    // Gets a value for username if supplied by user, or defaults to "default.conf"
-    if let Some(username) = matches.value_of("username") {
-        let password = matches.value_of("password").unwrap();
-        // println!("auth: {}:{}", username, password);
-
-        headers.set(Authorization(
-           Basic {
-               username: username.to_owned(),
-               password: Some(password.to_owned())
-           }
-       ));
-    }
+    let headers = make_headers(&matches);
     let url = format!("{}/_db_updates", server_url);
     let mut response = client.get(&url).headers(headers).send().unwrap();
 
@@ -92,18 +98,7 @@ fn main() {
        if !result.db_name.starts_with("_") {
          // println!("{}", result.db_name);
 
-         let mut h = Headers::new();
-         // Gets a value for username if supplied by user, or defaults to "default.conf"
-         if let Some(username) = matches.value_of("username") {
-             let password = matches.value_of("password").unwrap();
-             h.set(Authorization(
-                Basic {
-                    username: username.to_owned(),
-                    password: Some(password.to_owned())
-                }
-            ));
-         }
-
+         let h = make_headers(&matches);
          let u = format!("{}/{}/_changes", server_url, result.db_name);
          let mut resp = client.get(&u).headers(h).send().unwrap();
 
