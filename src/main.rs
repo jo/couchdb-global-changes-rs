@@ -6,7 +6,7 @@ extern crate url;
 use clap::{Arg, App, ArgMatches};
 use hyper::Client;
 use hyper::header::{Headers, Authorization, Basic};
-use std::io::Read;
+use std::io::{Read, BufReader, BufRead};
 use rustc_serialize::json;
 use url::percent_encoding::utf8_percent_encode;
 use url::percent_encoding::PATH_SEGMENT_ENCODE_SET;
@@ -87,34 +87,44 @@ fn main() {
     let client = Client::new();
     
     let headers = make_headers(&matches);
-    let url = format!("{}/_db_updates", server_url);
+    let url = format!("{}/_db_updates?feed=continuous", server_url);
     let mut response = client.get(&url).headers(headers).send().unwrap();
 
     assert_eq!(response.status, hyper::Ok);
 
-    let mut body = String::new();
-    let result = response.read_to_string(&mut body);
-    // println!("body {:?}", body);
+    let mut resp = BufReader::new(response);
 
-    let db_updates: DbUpdates = json::decode(&body).unwrap();
-    // println!("decoded {:?}", decoded);
-    for result in db_updates.results {
-       if !result.db_name.starts_with("_") {
-         // println!("{}", result.db_name);
+    let mut buffer = String::new();
 
-         let h = make_headers(&matches);
-         let u = format!("{}/{}/_changes", server_url, utf8_percent_encode(&result.db_name, PATH_SEGMENT_ENCODE_SET));
-         let mut resp = client.get(&u).headers(h).send().unwrap();
+    while resp.read_line(&mut buffer).unwrap() > 0 {
+        // work with buffer
+        // println!("{:?}", buffer);
+    
+        // let result = response.read_to_string(&mut body);
+        // println!("body {:?}", body);
 
-         assert_eq!(resp.status, hyper::Ok);
+        let result: DbUpdateResult = json::decode(&buffer).unwrap();
+        // println!("decoded {:?}", decoded);
+        // for result in db_updates.results {
+           if !result.db_name.starts_with("_") {
+             // println!("{}", result.db_name);
 
-         let mut b = String::new();
-         let res = resp.read_to_string(&mut b);
-         // println!("{}", b);
-         let changes: Changes = json::decode(&b).unwrap();
-         for r in changes.results {
-           println!("{}/{}", result.db_name, r.id);
-         }
-       }
+             let h = make_headers(&matches);
+             let u = format!("{}/{}/_changes", server_url, utf8_percent_encode(&result.db_name, PATH_SEGMENT_ENCODE_SET));
+             let mut resp = client.get(&u).headers(h).send().unwrap();
+
+             assert_eq!(resp.status, hyper::Ok);
+
+             let mut b = String::new();
+             let res = resp.read_to_string(&mut b);
+             // println!("{}", b);
+             let changes: Changes = json::decode(&b).unwrap();
+             for r in changes.results {
+               println!("{}/{}", result.db_name, r.id);
+             }
+           }
+        //}
+        
+        buffer.clear();
     }
 }
