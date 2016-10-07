@@ -5,6 +5,7 @@ extern crate url;
 
 use clap::{Arg, App, ArgMatches};
 use hyper::Client;
+use hyper::client::Response;
 use hyper::header::{Headers, Authorization, Basic};
 use std::io::{Read, BufReader, BufRead};
 use rustc_serialize::json;
@@ -30,14 +31,11 @@ pub struct DbUpdateResult {
     db_name: String
 }
 
-#[derive(RustcDecodable, RustcEncodable)]
-pub struct DbUpdates {
-    last_seq: String,
-    results: Vec<DbUpdateResult>,
-}
-
-fn make_headers(matches: &ArgMatches) -> Headers {
+fn make_request(matches: &ArgMatches, client: &Client, path: String) -> Response {
+    let server_url = matches.value_of("URL").unwrap();
     let mut headers = Headers::new();
+
+    let url = format!("{}/{}", server_url, path);
 
     // Gets a value for username if supplied by user, or defaults to "default.conf"
     if let Some(username) = matches.value_of("username") {
@@ -52,11 +50,14 @@ fn make_headers(matches: &ArgMatches) -> Headers {
        ));
     }
 
-    headers
+    let response = client.get(&url).headers(headers).send().unwrap();
+    assert_eq!(response.status, hyper::Ok);
+
+    response
 }
 
 fn main() {
-    let matches = App::new("DbUpdates Feed Listener")
+    let matches = App::new("Global Changes Feed")
                           .version("1.0")
                           .author("Johannes J. Schmidt <schmidt@netzmerk.com>")
                           .about("Listens to changes on all databases")
@@ -81,49 +82,33 @@ fn main() {
                           .get_matches();
 
     
-    let server_url = matches.value_of("URL").unwrap();
-    // println!("Using url: {}", server_url);
 
     let client = Client::new();
     
-    let headers = make_headers(&matches);
-    let url = format!("{}/_db_updates?feed=continuous", server_url);
-    let mut response = client.get(&url).headers(headers).send().unwrap();
-
-    assert_eq!(response.status, hyper::Ok);
-
-    let mut resp = BufReader::new(response);
-
+    let path = format!("_db_updates?feed=continuous");
+    let response = make_request(&matches, &client, path);
+    let mut response = BufReader::new(response);
     let mut buffer = String::new();
 
-    while resp.read_line(&mut buffer).unwrap() > 0 {
-        // work with buffer
+    while response.read_line(&mut buffer).unwrap() > 0 {
         // println!("{:?}", buffer);
     
-        // let result = response.read_to_string(&mut body);
-        // println!("body {:?}", body);
-
         let result: DbUpdateResult = json::decode(&buffer).unwrap();
-        // println!("decoded {:?}", decoded);
-        // for result in db_updates.results {
            if !result.db_name.starts_with("_") {
              // println!("{}", result.db_name);
 
-             let h = make_headers(&matches);
-             let u = format!("{}/{}/_changes", server_url, utf8_percent_encode(&result.db_name, PATH_SEGMENT_ENCODE_SET));
-             let mut resp = client.get(&u).headers(h).send().unwrap();
+             let path = format!("{}/_changes", utf8_percent_encode(&result.db_name, PATH_SEGMENT_ENCODE_SET));
+             let mut response = make_request(&matches, &client, path);
 
-             assert_eq!(resp.status, hyper::Ok);
+             let mut body = String::new();
+             response.read_to_string(&mut body).unwrap();
+             // println!("{}", body);
 
-             let mut b = String::new();
-             let res = resp.read_to_string(&mut b);
-             // println!("{}", b);
-             let changes: Changes = json::decode(&b).unwrap();
+             let changes: Changes = json::decode(&body).unwrap();
              for r in changes.results {
                println!("{}/{}", result.db_name, r.id);
              }
            }
-        //}
         
         buffer.clear();
     }
