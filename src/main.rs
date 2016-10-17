@@ -37,7 +37,6 @@ fn make_request(matches: &ArgMatches, client: &Client, path: String) -> Response
 
     let url = format!("{}/{}", server_url, path);
 
-    // Gets a value for username if supplied by user, or defaults to "default.conf"
     if let Some(username) = matches.value_of("username") {
         let password = matches.value_of("password").unwrap();
         // println!("auth: {}:{}", username, password);
