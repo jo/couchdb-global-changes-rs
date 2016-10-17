@@ -1,5 +1,5 @@
 [package]
-name = "couchdb_global_changes_feed"
+name = "couchdb-global-changes"
 version = "0.1.0"
 authors = ["Johannes J. Schmidt <jo@die-tf.de>"]
 

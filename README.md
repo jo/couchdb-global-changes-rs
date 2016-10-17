@@ -3,13 +3,13 @@ This is an _experimental_ project to implement a global changes feed in Rust.
 
 ## Usage
 ```sh
-$ ./target/release/couchdb_global_changes_feed --help
+$ couchdb-global-changes --help
 Global Changes Feed 1.0
 Johannes J. Schmidt <schmidt@netzmerk.com>
 Listens to changes on all databases
 
 USAGE:
-    couchdb_global_changes_feed [OPTIONS] <URL>
+    couchdb-global-changes [OPTIONS] <URL>
 
 FLAGS:
     -h, --help       Prints help information
