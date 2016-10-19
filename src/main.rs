@@ -1,5 +1,10 @@
+#![feature(proc_macro)]
+
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
 extern crate hyper;
-extern crate rustc_serialize;
 extern crate clap;
 extern crate url;
 
@@ -8,25 +13,20 @@ use hyper::Client;
 use hyper::client::Response;
 use hyper::header::{Headers, Authorization, Basic};
 use std::io::{Read, BufReader, BufRead};
-use rustc_serialize::json;
 use url::percent_encoding::utf8_percent_encode;
 use url::percent_encoding::PATH_SEGMENT_ENCODE_SET;
 
 
-#[derive(RustcDecodable)]
-pub struct ChangesResult {
+#[derive(Deserialize)]
+pub struct Change {
     seq: String,
     id: String
 }
 
-#[derive(RustcDecodable)]
-pub struct Changes {
-    last_seq: String,
-    results: Vec<ChangesResult>,
-}
-
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 pub struct DbUpdateResult {
+    #[serde(rename="type")]
+    update_type: String,
     seq: String,
     db_name: String
 }
@@ -51,7 +51,6 @@ fn make_request(matches: &ArgMatches, client: &Client, path: String) -> Response
 
     let response = client.get(&url).headers(headers).send().unwrap();
     // println!("response: {}:{}", url, response.status);
-    // assert_eq!(response.status, hyper::Ok);
 
     response
 }
@@ -85,36 +84,46 @@ fn main() {
 
     let client = Client::new();
     
-    let path = format!("_db_updates?feed=continuous");
+    let path = format!("_db_updates?feed=continuous&timeout=100");
     let response = make_request(&matches, &client, path);
-    let mut response = BufReader::new(response);
-    let mut buffer = String::new();
-
-    while response.read_line(&mut buffer).unwrap() > 0 {
-        // println!("{:?}", buffer);
+    assert_eq!(response.status, hyper::Ok);
     
-        let result: DbUpdateResult = json::decode(&buffer).unwrap();
-           if !result.db_name.starts_with("_") {
-             // println!("{}", result.db_name);
+    let mut response = BufReader::new(response);
 
-             let path = format!("{}/_changes", utf8_percent_encode(&result.db_name, PATH_SEGMENT_ENCODE_SET));
-             let mut response = make_request(&matches, &client, path);
-
-             match response.status {
-                 hyper::Ok => {
-                     let mut body = String::new();
-                     response.read_to_string(&mut body).unwrap();
-                     // println!("{}", body);
-
-                     let changes: Changes = json::decode(&body).unwrap();
-                     for r in changes.results {
-                       println!("{}/{}", result.db_name, r.id);
-                     }
-                 },
-                 _ => {}
-             }
-           }
-        
-        buffer.clear();
+    for line in response.lines() {
+        // println!("{:?}", line.unwrap());
+    
+        match serde_json::from_str::<DbUpdateResult>(&line.unwrap()) {
+            Ok(result) => {
+                match result.update_type.as_ref() {
+                    "updated" => {
+                        if !result.db_name.starts_with("_") {
+                            // println!("{}", result.db_name);
+                         
+                            let path = format!("{}/_changes?feed=continuous&timeout=1", utf8_percent_encode(&result.db_name, PATH_SEGMENT_ENCODE_SET));
+                            let response = make_request(&matches, &client, path);
+                           
+                            match response.status {
+                                hyper::Ok => {
+                                    let mut response = BufReader::new(response);
+                                   
+                                    for line in response.lines() {
+                                        match serde_json::from_str::<Change>(&line.unwrap()) {
+                                            Ok(change) => {
+                                                println!("{}/{}", result.db_name, change.id);
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                },
+                                _ => {}
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
     }
 }

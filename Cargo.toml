@@ -5,6 +5,8 @@ authors = ["Johannes J. Schmidt <jo@die-tf.de>"]
 
 [dependencies]
 hyper = "0.9.10"
-rustc-serialize = "0.3.19"
 clap = "2.14.0"
 url = "1.2.1"
+serde = "0.8"
+serde_json = "0.8"
+serde_derive = "0.8"
