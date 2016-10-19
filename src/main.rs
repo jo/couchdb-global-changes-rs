@@ -13,19 +13,19 @@ use url::percent_encoding::utf8_percent_encode;
 use url::percent_encoding::PATH_SEGMENT_ENCODE_SET;
 
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(RustcDecodable)]
 pub struct ChangesResult {
     seq: String,
     id: String
 }
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(RustcDecodable)]
 pub struct Changes {
     last_seq: String,
     results: Vec<ChangesResult>,
 }
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(RustcDecodable)]
 pub struct DbUpdateResult {
     seq: String,
     db_name: String
@@ -50,7 +50,8 @@ fn make_request(matches: &ArgMatches, client: &Client, path: String) -> Response
     }
 
     let response = client.get(&url).headers(headers).send().unwrap();
-    assert_eq!(response.status, hyper::Ok);
+    // println!("response: {}:{}", url, response.status);
+    // assert_eq!(response.status, hyper::Ok);
 
     response
 }
@@ -99,13 +100,18 @@ fn main() {
              let path = format!("{}/_changes", utf8_percent_encode(&result.db_name, PATH_SEGMENT_ENCODE_SET));
              let mut response = make_request(&matches, &client, path);
 
-             let mut body = String::new();
-             response.read_to_string(&mut body).unwrap();
-             // println!("{}", body);
+             match response.status {
+                 hyper::Ok => {
+                     let mut body = String::new();
+                     response.read_to_string(&mut body).unwrap();
+                     // println!("{}", body);
 
-             let changes: Changes = json::decode(&body).unwrap();
-             for r in changes.results {
-               println!("{}/{}", result.db_name, r.id);
+                     let changes: Changes = json::decode(&body).unwrap();
+                     for r in changes.results {
+                       println!("{}/{}", result.db_name, r.id);
+                     }
+                 },
+                 _ => {}
              }
            }
         
