@@ -23,4 +23,4 @@ ARGS:
     <URL>    Sets the url to the CouchDB server
 ```
 
-(c) 2016 Johannes J. Schmidt
+(c) 2016 Andi Pieper & Johannes J. Schmidt
