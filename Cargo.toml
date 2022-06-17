@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Johannes J. Schmidt <jo@die-tf.de>"]
 
 [dependencies]
-hyper = "0.9.10"
+hyper = "0.14.12"
 clap = "2.14.0"
 url = "1.2.1"
 serde = "0.8"
